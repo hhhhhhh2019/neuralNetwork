@@ -1,92 +1,119 @@
-/*const nn = new NeuralNetwork([2,10,1]);
+// https://stackoverflow.com/questions/1769584/get-position-of-element-by-javascript
+function getPos(ele){
+    var x=0;
+    var y=0;
+    while(true){
+        x += ele.offsetLeft;
+        y += ele.offsetTop;
+        if(ele.offsetParent === null){
+            break;
+        }
+       ele = ele.offsetParent;
+    }
+    return [x, y];
+}
 
-let ld = [
-	{"input":  [0,0],
-	 "output": [0]},
-	{"input":  [1,0],
-	 "output": [1]},
-	{"input":  [0,1],
-	 "output": [1]},
-	{"input":  [1,1],
-	 "output": [0]},
-];
 
-nn.train({
-	"data": ld,
-	"iterations": 7000,
-	"log": true,
-	"log period": 1000,
-	"koof": 0.9,
-});
+const cnv = viewport; // да, так можно обращатся
+cnv.height = cnv.width = 512;
+const ctx = cnv.getContext("2d");
+ctx.fillStyle = "#000000";
 
-console.log(nn.run([0,0])[0]);
-console.log(nn.run([1,0])[0]);
-console.log(nn.run([0,1])[0]);
-console.log(nn.run([1,1])[0]);*/
+const cellsCount = 10;
+const cellSize = cnv.width / cellsCount;
 
-const nn = new NeuralNetwork([3,2,1], "leakyRelu");
+var image = [];
+for (let i = 0; i < cellsCount * cellsCount; i++)
+	image.push(0);
 
+
+
+const nn = new NeuralNetwork([cellsCount * cellsCount, 50, 10, 20, 1]);
 var ld = [];
 
-var color = [0,0,0];
 
-const whiteBtn = document.getElementById("white");
-const blackBtn = document.getElementById("black");
 
-const trainDiv = document.getElementById("train_div");
-const testDiv = document.getElementById("test_div");
+function clearCnv() {
+	for (let i = 0; i < image.length; i++)
+		image[i] = 0;
 
-testDiv.style.visibility = "hidden";
-
-const btnTrain = document.getElementById("train");
-btnTrain.onclick = function() {
-	testDiv.style.visibility = "visible";
-	trainDiv.style.visibility = "hidden";
-	trainDiv.style.display = "none";
-
-	nn.train({
-		"data": ld,
-		"iterations": 50000,
-		"log": true,
-		"log period": 2000,
-		"koof": 0.5
-	});
-
-	next();
+	update();
 }
 
-const testText = document.getElementById("test_text");
+const [cx,cy] = getPos(cnv);
 
-function random() {
-	//return Math.random();
-	let o = new Uint8Array([0]);
-	window.crypto.getRandomValues(o);
-	return o[0] / 255;
+var isMouseDown = false;
+var mx = 0;
+var my = 0;
+
+cnv.onmousedown = function(e) {
+	isMouseDown = true;
+
+	mx = Math.min(cellsCount - 1, Math.max(0, Math.round((e.pageX - cx - cellSize / 2) / cellSize)));
+	my = Math.min(cellsCount - 1, Math.max(0, Math.round((e.pageY - cy - cellSize / 2) / cellSize)));
+
+	image[mx + my * cellsCount] = 1;
+
+	update();
 }
 
-function newQuestion() {
-	color = [random(), random(), random()];
+cnv.onmousemove = function(e) {
+	if (isMouseDown == false) return;
 
-	whiteBtn.style.background = `rgb(${Math.floor(color[0]*255)},${Math.floor(color[0]*255)},${Math.floor(color[0]*255)})`;
-	blackBtn.style.background = `rgb(${Math.floor(color[0]*255)},${Math.floor(color[0]*255)},${Math.floor(color[0]*255)})`;
+	mx = Math.min(cellsCount, Math.max(0, Math.round((e.pageX - cx - cellSize / 2) / cellSize)));
+	my = Math.min(cellsCount, Math.max(0, Math.round((e.pageY - cy - cellSize / 2) / cellSize)));
+
+	image[mx + my * cellsCount] = 1;
+
+	update();
 }
 
-function answer(a) {
+cnv.onmouseup = function(e) {
+	isMouseDown = false;
+}
+
+function new_ld(a) {
 	let d = {
-		"input": color,
+		"input": image.slice(0,image.length),
 		"output": [a]
 	};
 
 	ld.push(d);
 
-	newQuestion();
+	clearCnv();
 }
 
-function next() {
-	color = [random(), random(), random()];
-	testText.style.background = `rgb(${Math.floor(color[0]*255)},${Math.floor(color[0]*255)},${Math.floor(color[0]*255)})`;
-	let a = Math.round(nn.run(color)[0]);
-	testText.style.color = `rgb(${Math.floor(a*255)},${Math.floor(a*255)},${Math.floor(a*255)})`;
+function update() {
+	ctx.clearRect(0,0,cnv.width,cnv.height);
+
+	for (let x = 0; x < cellsCount; x++) {
+		for (let y = 0; y < cellsCount; y++) {
+			if (image[x + y * cellsCount] == 1)
+				ctx.fillRect(x*cellSize,y*cellSize,cellSize,cellSize);
+		}
+	}
 }
 
-newQuestion();
+function train() {
+	ld.sort(() => Math.random() - 0.5);
+
+	nn.train({
+		"data": ld,
+		"iterations": 10000,
+		"log": true,
+		"log period": 1000,
+		"koof": 0.5
+	});
+
+	train_div.style.display = "none";
+	test_div.style.display = "block";
+}
+
+
+function ask() {
+	let r = nn.run(image);
+
+	answer.innerHTML = r + ": " + (r > 0.5 ? "Нолик" : "Крестик");
+
+	clearCnv();
+}
