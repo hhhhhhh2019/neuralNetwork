@@ -83,7 +83,7 @@ class NeuralNetwork {
 
 	run(data) {
 		for (let i = 0; i < data.length; i++) {
-			this.neurons[0][i][0] = functions[this.type]["activate"](data[i]);
+			this.neurons[0][i][0] = data[i];//functions[this.type]["activate"](data[i]);
 		}
 
 		for (let i = 0; i < this.neurons.length - 1; i++) {
